@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "saleor-flat-tax-plugin"
+version = "0.1.0"
+description = "Saleor Flat Tax Plugin"
+authors = ["Carlos Ramírez <carlosarg54@gmail.com>"]
+homepage = "https://github.com/carlosa54/saleor-flat-tax-plugin"
+repository = "https://github.com/carlosa54/saleor-flat-tax-plugin"
+keywords = ["saleor", "plugins"]
+readme = "README.md"
+license = "MIT"
+include = [
+    "LICENSE",
+]
+
+[tool.poetry.dependencies]
+python = "~3.9"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+Django = "^3.2.8"
+saleor = {path = "../saleor", develop = true}
+
+[tool.poetry.plugins."saleor.plugins"]
+"saleor_flat_tax_plugin" = "saleor_flat_tax_plugin.plugin:FlatTaxPlugin"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
