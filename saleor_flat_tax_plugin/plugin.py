@@ -388,7 +388,6 @@ class FlatTaxPlugin(BasePlugin):
             self, product: "Product", price: Money
     ):
         taxes, tax_rate = self.__get_tax_data_for_product(product)
-        print(taxes, tax_rate, price)
         return apply_tax_to_price(taxes, tax_rate, price)
 
     def __get_tax_data_for_product(self, product: "Product"):
