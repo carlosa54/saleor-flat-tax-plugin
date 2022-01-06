@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "saleor-flat-tax-plugin"
-version = "0.1.0"
+version = "0.2.0"
 description = "Saleor Flat Tax Plugin"
 authors = ["Carlos Ramírez <carlosarg54@gmail.com>"]
 homepage = "https://github.com/carlosa54/saleor-flat-tax-plugin"
@@ -13,7 +13,7 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = "~3.9"
+python = ">=3.9,<3.10"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
