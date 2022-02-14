@@ -63,7 +63,7 @@ def get_tax_for_rate(tax_rates, rate_name=DEFAULT_TAX_RATE_NAME):
     if rate is None:
         return None
 
-    final_tax_rate = Decimal(float(rate) / 100)
+    final_tax_rate = Decimal(rate) / 100
 
     def tax(base, keep_gross=False):
         return flat_tax(base, final_tax_rate, keep_gross=keep_gross)

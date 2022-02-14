@@ -361,7 +361,7 @@ class FlatTaxPlugin(BasePlugin):
             return previous_value
         tax = taxes.get(tax_rate) or taxes.get(DEFAULT_TAX_RATE_NAME)
         # tax value is given in percentage so it need be be converted into decimal value
-        return Decimal(tax["value"] / 100)
+        return Decimal(tax["value"]) / 100
 
     def get_checkout_shipping_tax_rate(
             self,
