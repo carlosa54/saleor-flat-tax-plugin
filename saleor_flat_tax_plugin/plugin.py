@@ -9,7 +9,7 @@ from prices import Money, TaxedMoney, TaxedMoneyRange
 from saleor.checkout import base_calculations, calculations
 from saleor.checkout.interface import CheckoutTaxedPricesData
 from saleor.core.taxes import TaxType
-from saleor.graphql.core.utils.error_codes import PluginErrorCode
+from saleor.plugins.error_codes import PluginErrorCode
 from saleor.order.interface import OrderTaxedPricesData
 from saleor.product.models import ProductType
 from saleor.plugins.base_plugin import BasePlugin, ConfigurationTypeField
