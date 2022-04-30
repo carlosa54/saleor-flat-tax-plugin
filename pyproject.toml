@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "saleor-flat-tax-plugin"
-version = "0.3.0"
+version = "0.4.0"
 description = "Saleor Flat Tax Plugin"
 authors = ["Carlos Ramírez <carlosarg54@gmail.com>"]
 homepage = "https://github.com/carlosa54/saleor-flat-tax-plugin"
