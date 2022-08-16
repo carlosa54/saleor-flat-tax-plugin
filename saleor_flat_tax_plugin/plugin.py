@@ -7,9 +7,8 @@ from django_countries.fields import Country
 from prices import Money, TaxedMoney, TaxedMoneyRange
 
 from saleor.checkout import base_calculations, calculations
-from saleor.checkout.interface import CheckoutTaxedPricesData
 from saleor.core.prices import quantize_price
-from saleor.core.taxes import TaxType, zero_money, zero_taxed_money
+from saleor.core.taxes import TaxType, zero_money
 from saleor.discount import VoucherType
 from saleor.core.taxes import TaxType
 from saleor.plugins.error_codes import PluginErrorCode
@@ -108,7 +107,6 @@ class FlatTaxPlugin(BasePlugin):
                 TaxedMoney,
                 TaxedMoneyRange,
                 Decimal,
-                CheckoutTaxedPricesData,
                 OrderTaxedPricesData,
             ]
     ) -> bool:
@@ -121,12 +119,6 @@ class FlatTaxPlugin(BasePlugin):
 
         if isinstance(previous_value, TaxedMoney):
             return previous_value.net != previous_value.gross
-
-        if isinstance(previous_value, CheckoutTaxedPricesData):
-            return (
-                previous_value.price_with_sale.net
-                != previous_value.price_with_sale.gross
-            )
 
         if isinstance(previous_value, OrderTaxedPricesData):
             return (
@@ -159,18 +151,10 @@ class FlatTaxPlugin(BasePlugin):
             return previous_value
 
         manager = get_plugins_manager()
-        return calculations.checkout_subtotal(
-            manager=manager,
-            checkout_info=checkout_info,
-            lines=lines,
-            address=address,
-            discounts=discounts,
-        ) + calculations.checkout_shipping_price(
-            manager=manager,
-            checkout_info=checkout_info,
-            lines=lines,
-            address=address,
-            discounts=discounts,
+        return manager.calculate_checkout_subtotal(
+            checkout_info, lines, address, discounts
+        ) + manager.calculate_checkout_shipping(
+            checkout_info, lines, address, discounts
         )
 
     def calculate_checkout_shipping(
@@ -312,9 +296,9 @@ class FlatTaxPlugin(BasePlugin):
             checkout_line_info: "CheckoutLineInfo",
             address: Optional["Address"],
             discounts: Iterable["DiscountInfo"],
-            previous_value: CheckoutTaxedPricesData,
-    ) -> CheckoutTaxedPricesData:
-        unit_taxed_prices_data = self.__calculate_checkout_line_unit_price(
+            previous_value: TaxedMoney,
+    ) -> TaxedMoney:
+        unit_taxed_price = self.__calculate_checkout_line_unit_price(
             checkout_info,
             lines,
             checkout_line_info,
@@ -323,15 +307,11 @@ class FlatTaxPlugin(BasePlugin):
             address,
             previous_value,
         )
-        if not unit_taxed_prices_data:
+        if unit_taxed_price is None:
             return previous_value
 
         quantity = checkout_line_info.line.quantity
-        return CheckoutTaxedPricesData(
-            price_with_discounts=unit_taxed_prices_data.price_with_discounts * quantity,
-            price_with_sale=unit_taxed_prices_data.price_with_sale * quantity,
-            undiscounted_price=unit_taxed_prices_data.undiscounted_price * quantity,
-        )
+        return unit_taxed_price * quantity
 
     def calculate_checkout_line_unit_price(
             self,
@@ -340,9 +320,9 @@ class FlatTaxPlugin(BasePlugin):
             checkout_line_info: "CheckoutLineInfo",
             address: Optional["Address"],
             discounts: List["DiscountInfo"],
-            previous_value: CheckoutTaxedPricesData,
-    ) -> CheckoutTaxedPricesData:
-        unit_taxed_prices_data = self.__calculate_checkout_line_unit_price(
+            previous_value: TaxedMoney,
+    ) -> TaxedMoney:
+        unit_taxed_price = self.__calculate_checkout_line_unit_price(
             checkout_info,
             lines,
             checkout_line_info,
@@ -351,7 +331,7 @@ class FlatTaxPlugin(BasePlugin):
             address,
             previous_value,
         )
-        return unit_taxed_prices_data if unit_taxed_prices_data else previous_value
+        return unit_taxed_price if unit_taxed_price is not None else previous_value
 
     def __calculate_checkout_line_unit_price(
             self,
@@ -361,37 +341,28 @@ class FlatTaxPlugin(BasePlugin):
             channel: "Channel",
             discounts: Iterable["DiscountInfo"],
             address: Optional["Address"],
-            previous_value: CheckoutTaxedPricesData,
+            previous_value: TaxedMoney,
     ):
         if self._skip_plugin(previous_value):
             return
 
-        prices_data = base_calculations.calculate_base_line_unit_price(
+        unit_price = base_calculations.calculate_base_line_unit_price(
             checkout_line_info,
             channel,
             discounts,
         )
 
-        prices_data.price_with_discounts = apply_checkout_discount_on_checkout_line(
+        unit_price = apply_checkout_discount_on_checkout_line(
             checkout_info,
             lines,
             checkout_line_info,
             discounts,
-            prices_data.price_with_discounts,
+            unit_price,
         )
 
-        taxed_prices_data = CheckoutTaxedPricesData(
-            price_with_sale=self.__apply_taxes_to_product(
-                checkout_line_info.product, prices_data.price_with_sale
-            ),
-            undiscounted_price=self.__apply_taxes_to_product(
-                checkout_line_info.product, prices_data.undiscounted_price
-            ),
-            price_with_discounts=self.__apply_taxes_to_product(
-                checkout_line_info.product, prices_data.price_with_discounts
-            ),
+        return self.__apply_taxes_to_product(
+            checkout_line_info.product, unit_price
         )
-        return taxed_prices_data
 
     def get_checkout_line_tax_rate(
             self,
