@@ -2,10 +2,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Iterable, List
 from prices import Money, MoneyRange, TaxedMoney, TaxedMoneyRange
 
-
-from saleor.checkout import base_calculations
 from saleor.core.prices import quantize_price
-from saleor.core.taxes import zero_money
 from saleor.discount import VoucherType
 
 if TYPE_CHECKING:
@@ -119,6 +116,9 @@ def apply_checkout_discount_on_checkout_line(
     The discount amount is calculated for every line proportionally to
     the rate of total line price to checkout total price.
     """
+    from saleor.checkout import base_calculations
+    from saleor.core.taxes import zero_money
+
     voucher = checkout_info.voucher
     if (
         not voucher
