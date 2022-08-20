@@ -6,11 +6,10 @@ from django.core.exceptions import ValidationError
 from django_countries.fields import Country
 from prices import Money, TaxedMoney, TaxedMoneyRange
 
-from saleor.checkout import base_calculations, calculations
+from saleor.checkout import base_calculations
 from saleor.core.prices import quantize_price
-from saleor.core.taxes import TaxType, zero_money
+from saleor.core.taxes import TaxType, zero_money, zero_taxed_money, TaxLineData, TaxData
 from saleor.discount import VoucherType
-from saleor.core.taxes import TaxType
 from saleor.plugins.error_codes import PluginErrorCode
 from saleor.order.interface import OrderTaxedPricesData
 from saleor.order.utils import (
@@ -38,10 +37,8 @@ if TYPE_CHECKING:
     from saleor.discount import DiscountInfo
     from saleor.order.models import Order, OrderLine
     from saleor.product.models import (
-        Collection,
         Product,
         ProductVariant,
-        ProductVariantChannelListing,
     )
     from saleor.plugins.models import PluginConfiguration
 
@@ -110,6 +107,9 @@ class FlatTaxPlugin(BasePlugin):
                 OrderTaxedPricesData,
             ]
     ) -> bool:
+        if not self.active:
+            return True
+
         # The previous plugin already calculated taxes so we can skip our logic
         if isinstance(previous_value, TaxedMoneyRange):
             start = previous_value.start
@@ -138,6 +138,36 @@ class FlatTaxPlugin(BasePlugin):
         }
 
         return taxes
+
+    def get_taxes_for_order(
+            self, order: "Order", previous_value
+    ) -> Optional["TaxData"]:
+        if self._skip_plugin(previous_value):
+            return previous_value
+
+        if self.channel != order.channel:
+            return previous_value
+
+        lines = self.update_taxes_for_order_lines(order, order.lines.all(), None)
+        lines = [
+            TaxLineData(
+                total_net_amount=order_line.total_price_net_amount,
+                total_gross_amount=order_line.total_price_gross_amount,
+                tax_rate=self._get_tax_rate(order_line.variant.product, None, Decimal('0')) * 100
+            )
+            for order_line in lines
+        ]
+
+        order_shipping = self.calculate_order_shipping(order, None) or zero_taxed_money(order.currency)
+        # Saleor expects the tax_rate as 10 instead of 0.10 hence we multiply by 100
+        shipping_tax_rate = self._get_shipping_tax_rate(Decimal('0')) * 100
+
+        return TaxData(
+            shipping_price_net_amount=order_shipping.net.amount,
+            shipping_price_gross_amount=order_shipping.gross.amount,
+            shipping_tax_rate=shipping_tax_rate,
+            lines=lines,
+        )
 
     def calculate_checkout_total(
             self,
@@ -187,7 +217,7 @@ class FlatTaxPlugin(BasePlugin):
 
         return get_taxed_shipping_price(shipping_price, taxes)
 
-    def calculate_order_shipping(self, order: "Order", previous_value: TaxedMoney) -> TaxedMoney:
+    def calculate_order_shipping(self, order: "Order", previous_value: Any) -> TaxedMoney:
         if self._skip_plugin(previous_value):
             return previous_value
 
@@ -218,7 +248,7 @@ class FlatTaxPlugin(BasePlugin):
             self,
             order: "Order",
             lines: List["OrderLine"],
-            previous_value: List["OrderLine"],
+            previous_value: Any,
     ) -> List["OrderLine"]:
         if self._skip_plugin(previous_value):
             return previous_value
@@ -278,16 +308,14 @@ class FlatTaxPlugin(BasePlugin):
             country: "Country",
     ):
         line.unit_price = self.__apply_taxes_to_product(
-            product, price_with_discounts, country
+            product, price_with_discounts
         )
         line.undiscounted_unit_price = self.__apply_taxes_to_product(
-            product, line.undiscounted_base_unit_price, country
+            product, line.undiscounted_base_unit_price
         )
         line.total_price = line.unit_price * line.quantity
         line.undiscounted_total_price = line.undiscounted_unit_price * line.quantity
-        line.tax_rate = (line.unit_price.tax / line.unit_price.net).quantize(
-            Decimal(".0001")
-        )
+        line.tax_rate = self._get_tax_rate(product, None, Decimal('0'))
 
     def calculate_checkout_line_total(
             self,
