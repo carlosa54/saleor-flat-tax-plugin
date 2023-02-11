@@ -1,3 +1,5 @@
+## :warning: This project has been archived. Saleor added support for flat taxes in [v3.9.0](https://github.com/saleor/saleor/releases/tag/3.9.0)
+
 # Saleor Flat Tax Plugin
 
 `saleor-flat-tax-plugin` is a small plugin to enable flat taxes in Saleor.
